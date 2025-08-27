@@ -90,20 +90,85 @@ def flag_tile(x, y):
 ''' Problem Solving Logic '''
 
 # Automation:
-ah = 5
-while ah != 0:
-    board_image = capture_board() #Screenshot board
-    tiles = crop_board(board_image) #Crop Tiles
-    board_state = classify_board(tiles, classification_templates) #Classify Board
+# ah = 5
+# while ah != 0:
+#     board_image = capture_board() #Screenshot board
+#     tiles = crop_board(board_image) #Crop Tiles
+#     board_state = classify_board(tiles, classification_templates) #Classify Board
 
-    for y, row in enumerate(board_state):         # y = row index
-        for x, tile in enumerate(row):            # x = column index
-            if is_number_tile(tile):
-                if count_hidden_neighbors(x, y, board_state) + count_flagged_neighbors(x, y, board_state) == int(tile):
-                    for nx, ny in get_hidden_neighbors(x, y, board_state):
-                        flag_tile(nx, ny)
+#     for y, row in enumerate(board_state):         # y = row index
+#         for x, tile in enumerate(row):            # x = column index
+#             if is_number_tile(tile):
+#                 if count_hidden_neighbors(x, y, board_state) + count_flagged_neighbors(x, y, board_state) == int(tile):
+#                     for nx, ny in get_hidden_neighbors(x, y, board_state):
+#                         flag_tile(nx, ny)
 
-                elif count_flagged_neighbors(x, y, board_state) == int(tile):
-                    for nx, ny in get_hidden_neighbors(x, y, board_state):
-                        click_tile(nx, ny)
-    ah = ah -1
+#                 elif count_flagged_neighbors(x, y, board_state) == int(tile):
+#                     for nx, ny in get_hidden_neighbors(x, y, board_state):
+#                         click_tile(nx, ny)
+#     ah = ah -1
+
+
+
+# Process:
+# 1. Start the game - click on the top left tile
+# 2. Automate the rest of the game
+# 3. Stop when there are no more moves left to make
+
+
+# Sarting the game
+pyautogui.moveTo(global_variables.TOP_LEFT_X, global_variables.TOP_LEFT_Y)
+pyautogui.click()
+
+# Game loop: run until no new moves can be made
+solved_tiles = set()  # Tracks tiles that are done processing
+
+while True:
+    board_image = capture_board()
+    tiles = crop_board(board_image)
+    board_state = classify_board(tiles, classification_templates)
+
+    move_made = False
+    to_click = set()
+    to_flag = set()
+
+    for y, row in enumerate(board_state):
+        for x, tile in enumerate(row):
+            if not is_number_tile(tile):
+                continue
+
+            if (x, y) in solved_tiles:
+                continue  # Skip already processed number tiles
+
+            tile_value = int(tile)
+            hidden_neighbors = get_hidden_neighbors(x, y, board_state)
+            flagged_neighbors = count_flagged_neighbors(x, y, board_state)
+
+            if not hidden_neighbors:
+                solved_tiles.add((x, y))
+                continue  # Nothing more to do
+
+            # All unflagged hidden tiles are safe -> click them
+            if flagged_neighbors == tile_value:
+                to_click.update({(nx, ny) for nx, ny in hidden_neighbors})
+
+            # All hidden tiles are bombs -> flag them
+            elif flagged_neighbors + len(hidden_neighbors) == tile_value:
+                to_flag.update({(nx, ny) for nx, ny in hidden_neighbors})
+
+    # Prevent flag+click overlap
+    to_click.difference_update(to_flag)
+
+    # Perform actions
+    for x, y in to_flag:
+        flag_tile(x, y)
+        move_made = True
+
+    for x, y in to_click:
+        click_tile(x, y)
+        move_made = True
+
+    if not move_made:
+        print("No more deterministic moves can be made.")
+        break
+
